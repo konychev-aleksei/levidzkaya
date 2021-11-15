@@ -1,0 +1,7 @@
+﻿  Source.cpp
+C:\Users\79127\source\repos\Project6\Project5\interpolation.h(36,10): warning C4244: инициализация: преобразование "double" в "int", возможна потеря данных
+C:\Users\79127\source\repos\Project6\Project5\interpolation.h(38,10): warning C4244: инициализация: преобразование "double" в "int", возможна потеря данных
+C:\Users\79127\source\repos\Project6\Project5\interpolation.h(39,10): warning C4244: инициализация: преобразование "double" в "int", возможна потеря данных
+C:\Users\79127\source\repos\Project6\Project5\interpolation.h(40,10): warning C4244: инициализация: преобразование "double" в "int", возможна потеря данных
+C:\Users\79127\source\repos\Project6\Project5\Source.cpp(23): warning C4715: WndProc: значение возвращается не при всех путях выполнения
+  Project5.vcxproj -> C:\Users\79127\source\repos\Project6\Debug\Project5.exe
