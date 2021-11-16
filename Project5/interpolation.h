@@ -21,25 +21,51 @@ using namespace std;
 const int GRID_SIZE = 5;
 const int GRADIENT_STEP = 2;
 
-vector<vector<int>> figure = {
-	{ 110, 200, 110, 250 },
-	{ 280, 250, 280, 300 },
-	{ 410, 150, 410, 200 },
-	{ 110, 250, 280, 300 },
-	{ 280, 300, 410, 200 },
-	{ 110, 200, 280, 250 },
-	{ 280, 250, 410, 150 },
-	{ 280, 100, 410, 150 },
-	{ 110, 200, 280, 100 }
+vector<vector<vector<int>>> triangles = {
+	{
+		{ 110, 200 },
+		{ 110, 250 },
+		{ 280, 300 }
+	},
+	{
+		{ 110, 200 },
+		{ 280, 250 },
+		{ 280, 300 }
+	},
+	{
+		{ 280, 300 },
+		{ 410, 200 },
+		{ 410, 250 }
+	},
+	{
+		{ 280, 250 },
+		{ 280, 300 },
+		{ 410, 200 }
+	},
+	{
+		{ 280, 150 },
+		{ 280, 250 },
+		{ 410, 200 }
+	},
+	{
+		{ 110, 200 },
+		{ 280, 150 },
+		{ 280, 250 },
+	}
+};
+
+vector<vector<int>> pallette = {
+	{ 255, 0 },
+	{ 0, 255 },
 };
 
 double getTriangleArea(int x0, int y0, int x1, int y1, int x2, int y2) {
-	return .5 * fabs(double(x0) * (y1 - y2) + double(x1) * (y2 - y0) + double(x2) * (y0 - y1));
+	return .5 * fabs(double(x0) * (double(y1) - y2) + double(x1) * (double(y2) - y0) + double(x2) * (double(y0) - y1));
 }
 
 vector<int> getBaricentricCoordinatesColor(vector<vector<int>> triangle, int x, int y) {
 	int ABC = getTriangleArea(triangle[0][0], triangle[0][1], triangle[1][0], triangle[1][1], triangle[2][0], triangle[2][1]);
-	
+
 	int ABX = getTriangleArea(triangle[0][0], triangle[0][1], triangle[1][0], triangle[1][1], x * GRID_SIZE, y * GRID_SIZE);
 	int ACX = getTriangleArea(x * GRID_SIZE, y * GRID_SIZE, triangle[1][0], triangle[1][1], triangle[2][0], triangle[2][1]);
 	int BCX = getTriangleArea(triangle[0][0], triangle[0][1], x * GRID_SIZE, y * GRID_SIZE, triangle[2][0], triangle[2][1]);
@@ -174,17 +200,7 @@ void drawTriangle_Gourad(HDC memDC, vector<vector<int>> triangle, int offset) {
 	int counter = 0;
 	for (auto line : lines) {
 		int gradient = 255 / ((int)line.size() + 1);
-		int R, G, B;
-
-		if (counter == 0) {
-			R = 255, G = 0, B = 0;
-		}
-		else if (counter == 1) {
-			R = 0, G = 255, B = 0;
-		}
-		else {
-			R = 255, G = 0, B = 0;
-		}
+		int R = pallette[counter % 2][0], G = pallette[counter % 2][1], B = 0;
 
 		for (auto i : line) {
 			vector<int> color = { R, G, B };
@@ -229,11 +245,11 @@ void drawTriangle_Gourad(HDC memDC, vector<vector<int>> triangle, int offset) {
 				hor.clear();
 			}
 		}
-		
+
 		if ((int)hor.size()) {
 			int left = *hor.begin() - 1, right = *hor.rbegin() + 1;
 			vector<int> p = colors[{ left, i }],
-						q = colors[{ right, i }];
+				q = colors[{ right, i }];
 
 			int R = (q[0] - p[0]) / (int)hor.size();
 			int G = (q[1] - p[1]) / (int)hor.size();
@@ -346,45 +362,11 @@ void draw(HDC memDC, RECT rct) {
 		DrawLine(memDC, i * GRID_SIZE, 0, i * GRID_SIZE, 520);
 	}
 
-	vector<vector<int>> triangle = {
-		{ 110, 200, 0, 255, 0 },
-		{ 110, 250, 255, 0, 0 },
-		{ 280, 300, 0, 0, 255 }
-	};
-
-	/*
-	vector<vector<int>> figure = {
-		{ 110, 200, 110, 250 },
-		{ 280, 250, 280, 300 },
-		{ 410, 150, 410, 200 },
-		{ 110, 250, 280, 300 },
-		{ 280, 300, 410, 200 },
-		{ 110, 200, 280, 250 },
-		{ 280, 250, 410, 150 },
-		{ 280, 100, 410, 150 },
-		{ 110, 200, 280, 100 }
-	};
-	*/
-	
-	vector<vector<vector<int>>> triangles = {
-		{
-			{ 110, 200, 0, 255, 0 },
-			{ 110, 250, 255, 0, 0 },
-			{ 280, 300, 0, 0, 255 }
-		},
-		{
-			{ 110, 200, 0, 255, 0 },
-			{ 280, 250, 255, 0, 0 },
-			{ 280, 300, 0, 0, 255 }
-		}
-	};
 
 	for (int i = 0; i < (int)triangles.size(); ++i) {
 		drawTriangle_Gourad(memDC, triangles[i], 0);
+		drawTriangle_BaricentricCoordinates(memDC, triangles[i], 90);
 	}
-		
-	//drawTriangle_BaricentricCoordinates(memDC, triangle, 100);
-	drawTriangle_Gourad(memDC, triangle, 0);
 
 	drawBMP(memDC);
 }
