@@ -9,12 +9,17 @@
 #include <utility> 
 #include <stdio.h>
 #include <stdlib.h>
+#include <fstream>
 
 #define pT 8
 
+#define _CRT_SECURE_NO_WARNINGS
+#define _CRT_SECURE_NO_DEPRECATE
+
 using namespace std;
 
-int const GRID_SIZE = 5;
+const int GRID_SIZE = 5;
+const int GRADIENT_STEP = 2;
 
 vector<vector<int>> figure = {
 	{ 110, 200, 110, 250 },
@@ -168,7 +173,7 @@ void drawTriangle_Gourad(HDC memDC, vector<vector<int>> triangle, int offset) {
 
 	int counter = 0;
 	for (auto line : lines) {
-		int gradient = 255 / (int)line.size();
+		int gradient = 255 / ((int)line.size() + 1);
 		int R, G, B;
 
 		if (counter == 0) {
@@ -247,21 +252,98 @@ void drawTriangle_Gourad(HDC memDC, vector<vector<int>> triangle, int offset) {
 
 }
 
+void drawBMP(HDC memDC) {
+	ifstream infile("1.txt");
+
+	map<pair<int, int>, vector<int>> BMP;
+
+	int WIDTH, HEIGHT, R, G, B;
+	infile >> WIDTH >> HEIGHT;
+
+
+	SelectObject(memDC, GetStockObject(DC_BRUSH));
+	for (int i = 0; i < WIDTH; ++i)
+		for (int j = 0; j < HEIGHT; ++j) {
+			infile >> R >> G >> B;
+			COLORREF color = RGB(R, G, B);
+			SetPixel(memDC, i + 190, j + 680, color);
+			BMP.insert({ { i * (GRADIENT_STEP + 1), j * (GRADIENT_STEP + 1) }, { R, G, B } });
+		}
+
+
+	for (int j = 0; j < WIDTH * (GRADIENT_STEP + 1) - GRADIENT_STEP - 1; ++j) {
+		if (j % (GRADIENT_STEP + 1) == 0) {
+			for (int i = 0; i < WIDTH * (GRADIENT_STEP + 1) - GRADIENT_STEP - 1; ++i) {
+				if (i % (GRADIENT_STEP + 1)) {
+
+					vector<int> c0 = BMP[{ i - 1, j }];
+					vector<int> c1 = BMP[{ i + GRADIENT_STEP, j }];
+
+					int R = (c1[0] - c0[0]) / (GRADIENT_STEP + 1);
+					int G = (c1[1] - c0[1]) / (GRADIENT_STEP + 1);
+					int B = (c1[2] - c0[2]) / (GRADIENT_STEP + 1);
+					int r = 0, g = 0, b = 0;
+
+					int k;
+					for (k = i; k < i + GRADIENT_STEP; ++k) {
+						COLORREF color = RGB(c0[0] + r, c0[1] + g, c0[2] + b);
+						SetPixel(memDC, k + 500, j + 570, color);
+						BMP.insert({ { k, j }, { c0[0] + r, c0[1] + g, c0[2] + b } });
+
+						r += R, g += G, b += B;
+					}
+					i = k - 1;
+				}
+				else {
+					vector<int> c = BMP[{ i, j }];
+					COLORREF color = RGB(c[0], c[1], c[2]);
+					SetPixel(memDC, i + 500, j + 570, color);
+				}
+			}
+		}
+	}
+
+	for (int j = 0; j < WIDTH * (GRADIENT_STEP + 1) - GRADIENT_STEP - 1; ++j) {
+		for (int i = 0; i < WIDTH * (GRADIENT_STEP + 1) - 2 * GRADIENT_STEP - 1; ++i) {
+			if (i % (GRADIENT_STEP + 1) == 0) {
+				continue;
+			}
+
+			vector<int> c0 = BMP[{ j, i - 1 }];
+			vector<int> c1 = BMP[{ j, i + GRADIENT_STEP }];
+
+			int R = (c1[0] - c0[0]) / (GRADIENT_STEP + 1);
+			int G = (c1[1] - c0[1]) / (GRADIENT_STEP + 1);
+			int B = (c1[2] - c0[2]) / (GRADIENT_STEP + 1);
+			int r = 0, g = 0, b = 0;
+
+			int k;
+			for (k = i; k < i + GRADIENT_STEP; ++k) {
+				COLORREF color = RGB(c0[0] + r, c0[1] + g, c0[2] + b);
+				SetPixel(memDC, j + 500, k + 570, color);
+
+				r += R, g += G, b += B;
+			}
+			i = k - 1;
+		}
+	}
+}
+
+
 void draw(HDC memDC, RECT rct) {
 	int width = rct.right - rct.left;
 	int height = rct.bottom - rct.top;
 
-
 	SelectObject(memDC, GetStockObject(DC_PEN));
 	SetDCPenColor(memDC, RGB(50, 50, 50));
 
-	//Îòðèñîâêà ñåòêè
-	for (int i = 0; i < 100; ++i) {
+	//ÐžÑ‚Ñ€Ð¸ÑÐ¾Ð²ÐºÐ° ÑÐµÑ‚ÐºÐ¸
+	for (int i = 0; i < 105; ++i) {
 		DrawLine(memDC, 0, i * GRID_SIZE, width, i * GRID_SIZE);
 	}
 
 	for (int i = 0; i < 200; ++i) {
-		DrawLine(memDC, i * GRID_SIZE, 0, i * GRID_SIZE, height);
+		DrawLine(memDC, i * GRID_SIZE, 0, i * GRID_SIZE, 520);
 	}
 
 	vector<vector<int>> triangle = {
@@ -270,10 +352,39 @@ void draw(HDC memDC, RECT rct) {
 		{ 280, 300, 0, 0, 255 }
 	};
 
-	drawTriangle_BaricentricCoordinates(memDC, triangle, 100);
+	/*
+	vector<vector<int>> figure = {
+		{ 110, 200, 110, 250 },
+		{ 280, 250, 280, 300 },
+		{ 410, 150, 410, 200 },
+		{ 110, 250, 280, 300 },
+		{ 280, 300, 410, 200 },
+		{ 110, 200, 280, 250 },
+		{ 280, 250, 410, 150 },
+		{ 280, 100, 410, 150 },
+		{ 110, 200, 280, 100 }
+	};
+	*/
+	
+	vector<vector<vector<int>>> triangles = {
+		{
+			{ 110, 200, 0, 255, 0 },
+			{ 110, 250, 255, 0, 0 },
+			{ 280, 300, 0, 0, 255 }
+		},
+		{
+			{ 110, 200, 0, 255, 0 },
+			{ 280, 250, 255, 0, 0 },
+			{ 280, 300, 0, 0, 255 }
+		}
+	};
+
+	for (int i = 0; i < (int)triangles.size(); ++i) {
+		drawTriangle_Gourad(memDC, triangles[i], 0);
+	}
+		
+	//drawTriangle_BaricentricCoordinates(memDC, triangle, 100);
 	drawTriangle_Gourad(memDC, triangle, 0);
 
-
-	//unsigned char* data = readBMP("snail.bmp");
-
+	drawBMP(memDC);
 }
