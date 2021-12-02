@@ -1,134 +1,76 @@
-#pragma once
-#include <iostream>
-#include <windows.h>
-#include <string>
-#include <algorithm>
-#include <set>
-#include <vector>
-#include <utility> 
+//#include "interpolation.h"
+#include "rastr.h"
+//#include "otsech.h"
 
-#define pT 8
+RECT rct;
 
-using namespace std;
-
-int const GRID_SIZE = 5;
-
-vector<vector<int>> figure = {
-	{ 110, 200, 110, 250 },
-	{ 280, 250, 280, 300 },
-	{ 410, 150, 410, 200 },
-	{ 110, 250, 280, 300 },
-	{ 280, 300, 410, 200 },
-	{ 110, 200, 280, 250 },
-	{ 280, 250, 410, 150 },
-	{ 280, 100, 410, 150 },
-	{ 110, 200, 280, 100 }
-};
-
-
-BOOL DrawLine(HDC hdc, int x0, int y0, int x, int y) {
-	POINT pt;
-	MoveToEx(hdc, x0, y0, &pt);
-	return LineTo(hdc, x, y);
+void canvas(HDC dc, HWND hwnd, int x1, int y1, int x2, int y2) {
+	HDC memDC = CreateCompatibleDC(dc);
+	HBITMAP memBM = CreateCompatibleBitmap(dc, rct.right - rct.left, rct.bottom - rct.top);
+	SelectObject(memDC, memBM); 
+	//draw(memDC, rct, x1, y1, x2, y2); 
+	draw(memDC, rct);
+	BitBlt(dc, 0, 0, rct.right - rct.left, rct.bottom - rct.top, memDC, 0, 0, SRCCOPY);
+	ReleaseDC(hwnd, memDC);
+	DeleteDC(memDC); 
+	DeleteObject(memBM);
 }
 
-void DrawPixel(HDC hdc, int x0, int y0) {
-	Rectangle(hdc, x0 * GRID_SIZE + 1, y0 * GRID_SIZE + 1, (x0 + 1) * GRID_SIZE, (y0 + 1) * GRID_SIZE);
+LRESULT WINAPI WndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) {
+	if (message == WM_DESTROY)
+		PostQuitMessage(0);
+	else if (message == WM_SIZE)
+		GetClientRect(hwnd, &rct);
+	else
+		return DefWindowProcA(hwnd, message, wparam, lparam);
 }
 
+int main() {
+	WNDCLASSA wcl;
+	memset(&wcl, 0, sizeof(WNDCLASSA));
+	wcl.lpszClassName = "my Window";
+	wcl.lpfnWndProc = WndProc;
+	RegisterClassA(&wcl);
 
-set<pair<int, int>> CDA(int x0, int y0, int x1, int y1) {
-	set<pair<int, int>> out;
-	int dx = x1 - x0,
-		dy = y1 - y0,
-		s = abs(dx) > abs(dy) ? abs(dx) : abs(dy);
-	double xi = float(dx) / s,
-		yi = float(dy) / s;
+	HWND hwnd;
+	hwnd = CreateWindow("my Window", "Window", WS_OVERLAPPEDWINDOW, 100, 100, 992, SCREEN_HEIGHT, NULL, NULL, NULL, NULL);
 
-	double x = x0, y = y0;
-	out.insert({ x0, y0 });
+	HDC dc = GetDC(hwnd);
+	ShowWindow(hwnd, SW_SHOWNORMAL);
 
-	for (int i = 0; i < s; i++) {
-		x += xi;
-		y += yi;
-		out.insert({ (int)floor(x / GRID_SIZE), (int)floor(y / GRID_SIZE) });
-	}
+	srand(time(NULL));
+	MSG msg;
 
-	return out;
-}
+	int timer = 0;
+	int x1, y1, x2, y2;
 
-set<pair<int, int>> Bresenham(int x1, int y1, int x2, int y2) {
-	set<pair<int, int>> out;
-
-	if (x1 == x2) {
-		for (int y = y1; y < y2; y++) {
-			out.insert({ (int)floor(x1 / GRID_SIZE), (int)floor(y / GRID_SIZE) });
+	while (1) {
+		if (timer % 120 == 0) {
+			
+			x1 = rand() % 90;
+			y1 = rand() % 50;
+			x2 = rand() % 90;
+			y2 = rand() % 50;
+			
+			
+			//x1 = rand() % 25;
+			//y1 = rand() % 25;
+			//x2 = rand() % 25 + x1 + 10;
+			//y2 = rand() % 25 + y1 + 10;
+			
+			timer = 1;
 		}
-	}
-	else {
-		int heightDiff = 2 * abs(y2 - y1);
-		int slopeError = heightDiff - (x2 - x1);
-		for (int x = x1, y = y1; x <= x2; x++) {
-			out.insert({ (int)floor(x / GRID_SIZE), (int)floor(y / GRID_SIZE) });
-			slopeError += heightDiff;
-
-			if (slopeError >= 0) {
-				y += 2 * (y2 > y1) - 1;
-				slopeError -= 2 * (x2 - x1);
-			}
+		if (PeekMessageA(&msg, NULL, 0, 0, PM_REMOVE)) {
+			if (msg.message == WM_QUIT) break;
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+		}
+		else {
+			canvas(dc, hwnd, x1, y1, x2, y2);
+			Sleep(1);
+			timer++;
 		}
 	}
 
-	return out;
-}
 
-
-void drawFigure(HDC memDC, int offset) {
-	SelectObject(memDC, GetStockObject(DC_PEN));
-	SetDCPenColor(memDC, RGB(0, 0, 0));
-
-	SelectObject(memDC, GetStockObject(DC_BRUSH));
-	SetDCBrushColor(memDC, RGB(0, 200, 0));
-
-	for (int i = 0; i < (int)figure.size(); ++i) {
-		set<pair<int, int>> plots = 
-			offset ? 
-					Bresenham(figure[i][0] + offset, figure[i][1], figure[i][2] + offset, figure[i][3])
-				:
-					CDA(figure[i][0] + offset, figure[i][1], figure[i][2] + offset, figure[i][3])
-			;
-
-		for (auto i : plots) {
-			DrawPixel(memDC, i.first, i.second);
-		}
-	}
-
-	SelectObject(memDC, GetStockObject(DC_PEN));
-	SetDCPenColor(memDC, RGB(200, 0, 0));
-
-	for (int i = 0; i < (int)figure.size(); ++i) {
-		DrawLine(memDC, figure[i][0] + offset, figure[i][1], figure[i][2] + offset, figure[i][3]);
-	}
-}
-
-
-void draw(HDC memDC, RECT rct) { 
-	int width = rct.right - rct.left;
-	int height = rct.bottom - rct.top;
-
-
-	SelectObject(memDC, GetStockObject(DC_PEN));
-	SetDCPenColor(memDC, RGB(50, 50, 50));
-
-	//Отрисовка сетки
-	for (int i = 0; i < 100; ++i) {
-		DrawLine(memDC, 0, i * GRID_SIZE, width, i * GRID_SIZE);
-	}
-
-	for (int i = 0; i < 200; ++i) {
-		DrawLine(memDC, i * GRID_SIZE, 0, i * GRID_SIZE, height);
-	}
-
-	drawFigure(memDC, 0);
-	drawFigure(memDC, 400);
 }
