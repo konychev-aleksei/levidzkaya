@@ -7,12 +7,10 @@
 #include <vector>
 #include <utility> 
 
-#define pT 8
-
 using namespace std;
 
 const int SCREEN_HEIGHT = 515;
-const int GRID_SIZE = 5;
+const int GRID_SIZE = 10;
 
 vector<vector<int>> figure = {
 	{ 110, 200, 110, 250 },
@@ -26,7 +24,7 @@ vector<vector<int>> figure = {
 	{ 110, 200, 280, 100 }
 };
 
-vector<int> region = { 15, 15, 75, 75 };
+vector<int> region = { 0, 0, 50, 100 };
 
 
 BOOL DrawLine(HDC hdc, int x0, int y0, int x, int y) {
@@ -35,29 +33,66 @@ BOOL DrawLine(HDC hdc, int x0, int y0, int x, int y) {
 	return LineTo(hdc, x, y);
 }
 
-void DrawPixel(HDC hdc, int x0, int y0) {
-	Rectangle(hdc, x0 * GRID_SIZE + 1, y0 * GRID_SIZE + 1, (x0 + 1) * GRID_SIZE, (y0 + 1) * GRID_SIZE);
+void DrawPixel(HDC hdc, int x0, int y0, int X1, int Y1, int X2, int Y2) {
+	if (x0 >= X1 + 1 && x0 <= X2 - 1 && y0 >= Y1 + 1 && y0 <= Y2 - 1) {
+		Rectangle(hdc, x0 * GRID_SIZE + 1, y0 * GRID_SIZE + 1, x0 * GRID_SIZE + GRID_SIZE + 1, y0 * GRID_SIZE + GRID_SIZE + 1);
+	}	
 }
 
 set<pair<int, int>> Bresenham(int x1, int y1, int x2, int y2) {
 	set<pair<int, int>> out;
 
-	if (x1 == x2) {
-		for (int y = y1; y < y2; y++) {
-			out.insert({ (int)floor(x1 / GRID_SIZE), (int)floor(y / GRID_SIZE) });
+	int dx = abs(x2 - x1);
+	int dy = abs(y2 - y1);
+	int sx = 2 * (x2 >= x1) - 1;
+	int sy = 2 * (y2 >= y1) - 1;
+
+	if (dy < dx)
+	{
+		int d = (dy << 1) - dx;
+		int d1 = dy << 1;
+		int d2 = (dy - dx) << 1;
+		int x = x1 + sx;
+		int y = y1;
+
+		out.insert({ x1, y1 });
+
+		for (int i = 1; i <= dx; i++)
+		{
+			if (d > 0)
+			{
+				d += d2;
+				y += sy;
+			}
+			else
+				d += d1;
+
+			out.insert({ x, y });
+			x += sx;
 		}
 	}
-	else {
-		int heightDiff = 2 * abs(y2 - y1);
-		int slopeError = heightDiff - (x2 - x1);
-		for (int x = x1, y = y1; x <= x2; x++) {
-			out.insert({ (int)floor(x / GRID_SIZE), (int)floor(y / GRID_SIZE) });
-			slopeError += heightDiff;
+	else
+	{
+		int d = (dx << 1) - dy;
+		int d1 = dx << 1;
+		int d2 = (dx - dy) << 1;
+		int x = x1;
+		int y = y1 + sy;
 
-			if (slopeError >= 0) {
-				y += 2 * (y2 > y1) - 1;
-				slopeError -= 2 * (x2 - x1);
+		out.insert({ x1, y1 });
+
+		for (int i = 1; i <= dy; i++)
+		{
+			if (d > 0)
+			{
+				d += d2;
+				x += sx;
 			}
+			else
+				d += d1;
+
+			out.insert({ x, y });
+			y += sy;
 		}
 	}
 
@@ -66,34 +101,34 @@ set<pair<int, int>> Bresenham(int x1, int y1, int x2, int y2) {
 
 const int INSIDE = 0;
 const int LEFT = 1;
-const int RIGHT = 2; 
+const int RIGHT = 2;
 const int BOTTOM = 4;
-const int TOP = 8; 
-
-const int x_max = region[3] * GRID_SIZE;
-const int y_max = region[2] * GRID_SIZE;
-const int x_min = region[0] * GRID_SIZE;
-const int y_min = region[1] * GRID_SIZE;
+const int TOP = 8;
 
 
-int computeCode(double x, double y) {
+int computeCode(double x, double y, int X1, int Y1, int X2, int Y2) {
 	int code = INSIDE;
 
-	if (x < x_min) 
+	if (x < X1)
 		code |= LEFT;
-	else if (x > x_max) 
+	else if (x > X2)
 		code |= RIGHT;
-	if (y < y_min) 
+	if (y < Y1)
 		code |= BOTTOM;
-	else if (y > y_max)
+	else if (y > Y2)
 		code |= TOP;
 
 	return code;
 }
 
-vector<int> cohenSutherlandClip(int x1, int y1, int x2, int y2) {
-	int code1 = computeCode(x1, y1);
-	int code2 = computeCode(x2, y2);
+vector<int> cohenSutherlandClip(int x1, int y1, int x2, int y2, int X1, int Y1, int X2, int Y2) {
+	const int x_max = X2;
+	const int y_max = Y2;
+	const int x_min = X1;
+	const int y_min = Y1;
+
+	int code1 = computeCode(x1, y1, X1, Y1, X2, Y2);
+	int code2 = computeCode(x2, y2, X1, Y1, X2, Y2);
 
 	bool accept = false;
 
@@ -133,12 +168,12 @@ vector<int> cohenSutherlandClip(int x1, int y1, int x2, int y2) {
 			if (code_out == code1) {
 				x1 = x;
 				y1 = y;
-				code1 = computeCode(x1, y1);
+				code1 = computeCode(x1, y1, X1, Y1, X2, Y2);
 			}
 			else {
 				x2 = x;
 				y2 = y;
-				code2 = computeCode(x2, y2);
+				code2 = computeCode(x2, y2, X1, Y1, X2, Y2);
 			}
 		}
 	}
@@ -149,7 +184,7 @@ vector<int> cohenSutherlandClip(int x1, int y1, int x2, int y2) {
 	return accept ? resolve : reject;
 }
 
-void drawFigure(HDC memDC, int offset) {
+void drawFigure(HDC memDC, int offset, int X1, int Y1, int X2, int Y2) {
 	SelectObject(memDC, GetStockObject(DC_PEN));
 	SetDCPenColor(memDC, RGB(0, 0, 0));
 
@@ -157,34 +192,32 @@ void drawFigure(HDC memDC, int offset) {
 	SetDCBrushColor(memDC, RGB(0, 200, 0));
 
 	for (int i = 0; i < (int)figure.size(); ++i) {
-		vector<int> p = cohenSutherlandClip(figure[i][0], figure[i][1], figure[i][2], figure[i][3]);
+		vector<int> p = cohenSutherlandClip(figure[i][0] / GRID_SIZE, figure[i][1] / GRID_SIZE, figure[i][2] / GRID_SIZE, figure[i][3] / GRID_SIZE, X1, Y1, X2, Y2);
+		//cout << figure[i][0] / GRID_SIZE << ' ' << figure[i][1] / GRID_SIZE << ' ' << figure[i][2] / GRID_SIZE << ' ' << figure[i][3] / GRID_SIZE << endl;
 
-		//cout << figure[i][0] << ' ' << figure[i][1] << ' ' << figure[i][2] << ' ' << figure[i][3] << endl;
-
-		//if (p.size())
-		//	cout << p[0] << ' ' << p[1] << ' ' << p[2] << ' ' << p[3] << endl;
-
-		
 		if ((int)p.size()) {
 			set<pair<int, int>> plots = Bresenham(p[0], p[1], p[2], p[3]);
 
 			for (auto i : plots) {
-				DrawPixel(memDC, i.first, i.second);
+				DrawPixel(memDC, i.first, i.second, X1, Y1, X2, Y2);
 			}
 		}
-		
+
 	}
 
 	SelectObject(memDC, GetStockObject(DC_PEN));
 	SetDCPenColor(memDC, RGB(200, 0, 0));
 
 	for (int i = 0; i < (int)figure.size(); ++i) {
-		DrawLine(memDC, figure[i][0] + offset, figure[i][1], figure[i][2] + offset, figure[i][3]);
+		DrawLine(memDC, figure[i][0] + offset, figure[i][1] + 3, figure[i][2] + offset, figure[i][3] + 3);
 	}
 }
 
+void DrawPixel(HDC hdc, int x0, int y0) {
+	Rectangle(hdc, x0 * GRID_SIZE + 1, y0 * GRID_SIZE + 1, x0 * GRID_SIZE + GRID_SIZE + 1, y0 * GRID_SIZE + GRID_SIZE + 1);
+}
 
-void draw(HDC memDC, RECT rct) {
+void draw(HDC memDC, RECT rct, int x1, int y1, int x2, int y2) {
 	int width = rct.right - rct.left;
 	int height = rct.bottom - rct.top;
 
@@ -203,10 +236,10 @@ void draw(HDC memDC, RECT rct) {
 
 	SelectObject(memDC, GetStockObject(DC_BRUSH));
 	SetDCBrushColor(memDC, RGB(50, 50, 50));
-	for (int i = region[0]; i < region[2]; ++i)
-		for (int j = region[1]; j < region[3]; ++j) {
-			DrawPixel(memDC, i, j);
+	for (int i = x1; i < x2; ++i)
+		for (int j = y1; j < y2; ++j) {
+			DrawPixel(memDC, i, j, x1, y1, x2, y2);
 		}
 
-	drawFigure(memDC, 0);
+	drawFigure(memDC, 0, x1, y1, x2, y2);
 }
